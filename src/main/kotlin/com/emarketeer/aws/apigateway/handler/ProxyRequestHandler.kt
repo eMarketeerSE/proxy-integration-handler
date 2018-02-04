@@ -2,17 +2,19 @@ package com.emarketeer.aws.apigateway.handler
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.RequestHandler
+import com.amazonaws.xray.AWSXRayRecorderBuilder
+import com.emarketeer.aws.apigateway.adapter.LocalDateTimeTypeAdapter
+import com.emarketeer.aws.apigateway.adapter.LocalDateTypeAdapter
 import com.emarketeer.aws.apigateway.dto.ApiError
 import com.emarketeer.aws.apigateway.dto.ApiGatewayRequest
 import com.emarketeer.aws.apigateway.dto.ApiGatewayResponse
 import com.emarketeer.aws.apigateway.dto.ProxyGatewayRequest
-import com.emarketeer.aws.apigateway.adapter.LocalDateTimeTypeAdapter
-import com.emarketeer.aws.apigateway.adapter.LocalDateTypeAdapter
 import com.google.gson.GsonBuilder
 import org.apache.logging.log4j.LogManager
 import java.lang.reflect.Type
 import java.time.LocalDate
 import java.time.LocalDateTime
+
 
 abstract class ProxyRequestHandler<Body, Query> : RequestHandler<ApiGatewayRequest<String, Any>, ApiGatewayResponse> {
     val gson = GsonBuilder()
@@ -20,7 +22,12 @@ abstract class ProxyRequestHandler<Body, Query> : RequestHandler<ApiGatewayReque
             .registerTypeAdapter(LocalDateTime::class.java, LocalDateTimeTypeAdapter())
             .create()
 
+    val xrayRecorder = AWSXRayRecorderBuilder.defaultRecorder()!!
+
     override fun handleRequest(input: ApiGatewayRequest<String, Any>?, context: Context?): ApiGatewayResponse {
+
+        val segment = xrayRecorder.beginSegment(this.javaClass.simpleName)
+
         return try {
             // TODO: support Void type
 
@@ -45,8 +52,12 @@ abstract class ProxyRequestHandler<Body, Query> : RequestHandler<ApiGatewayReque
 
             this.handle(parsedRequest, context)
         } catch (e: Exception) {
+            segment.addException(e)
+            segment.isError = true
             log.error("Internal Server Error", e)
             error(ApiError(e.message, e.message))
+        } finally {
+            xrayRecorder.endSegment()
         }
     }
 
