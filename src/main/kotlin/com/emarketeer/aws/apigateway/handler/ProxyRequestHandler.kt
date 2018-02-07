@@ -65,6 +65,7 @@ abstract class ProxyRequestHandler<Body, Query>() : RequestHandler<ApiGatewayReq
         }
     }
 
+    fun ok(): ApiGatewayResponse = ApiGatewayResponse.OK("")
     fun ok(responseBody: String): ApiGatewayResponse = ApiGatewayResponse.OK(responseBody)
     fun ok(responseBody: Any?): ApiGatewayResponse = ApiGatewayResponse.OK(gson.toJson(responseBody))
     fun error(responseBody: Any?): ApiGatewayResponse = ApiGatewayResponse.ERROR(gson.toJson(responseBody))
