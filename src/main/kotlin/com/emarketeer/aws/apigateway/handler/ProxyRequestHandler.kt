@@ -68,8 +68,11 @@ abstract class ProxyRequestHandler<Body, Query>() : RequestHandler<ApiGatewayReq
     fun ok(): ApiGatewayResponse = ApiGatewayResponse.OK("")
     fun ok(responseBody: String): ApiGatewayResponse = ApiGatewayResponse.OK(responseBody)
     fun ok(responseBody: Any?): ApiGatewayResponse = ApiGatewayResponse.OK(gson.toJson(responseBody))
+    fun ok(responseBody: String, headers: Map<String, String>?): ApiGatewayResponse = ApiGatewayResponse.OK(responseBody, headers)
     fun error(responseBody: Any?): ApiGatewayResponse = ApiGatewayResponse.ERROR(gson.toJson(responseBody))
+    fun error(responseBody: Any?, headers: Map<String, String>?): ApiGatewayResponse = ApiGatewayResponse.ERROR(gson.toJson(responseBody), headers)
     fun badRequest(responseBody: Any?): ApiGatewayResponse = ApiGatewayResponse.BAD_REQUEST(gson.toJson(responseBody))
+    fun badRequest(responseBody: Any?, headers: Map<String, String>?): ApiGatewayResponse = ApiGatewayResponse.BAD_REQUEST(gson.toJson(responseBody), headers)
 
     fun threadLocalRecorder(traceEntity: Entity): AWSXRayRecorder {
         val resolver = SegmentContextResolverChain()
