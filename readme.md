@@ -50,8 +50,8 @@ public class ExampleHandler extends ProxyRequestHandler<User, QueryStringType> {
 
 ## Authors
 
-See the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+See the list of [contributors](https://github.com/eMarketeerSE/proxy-integration-handler/graphs/contributors) who participated in this project.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
