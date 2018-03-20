@@ -10,7 +10,7 @@ To be defined when published into a public repo
 
 ## Example usage
 
-```
+```java
 public class ExampleHandler extends ProxyRequestHandler<User, QueryStringType> {
 
     static final Logger log = LogManager.getLogger(AddPreRegUser.class);
