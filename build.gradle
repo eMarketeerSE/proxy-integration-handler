@@ -1,4 +1,4 @@
-group 'com.emarketeer.aws'
+group 'com.emarketeer'
 version '1.0'
 
 apply plugin: 'idea'
