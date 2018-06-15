@@ -2,15 +2,10 @@ package com.emarketeer.aws.apigateway.handler
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.RequestHandler
-import com.amazonaws.xray.AWSXRayRecorder
 import com.amazonaws.xray.AWSXRayRecorderBuilder
-import com.amazonaws.xray.contexts.SegmentContextResolverChain
-import com.amazonaws.xray.contexts.ThreadLocalSegmentContextResolver
-import com.amazonaws.xray.entities.Entity
-import com.amazonaws.xray.entities.Segment
+import com.amazonaws.xray.strategy.LogErrorContextMissingStrategy
 import com.emarketeer.aws.apigateway.adapter.LocalDateTimeTypeAdapter
 import com.emarketeer.aws.apigateway.adapter.LocalDateTypeAdapter
-import com.emarketeer.aws.apigateway.dto.ApiError
 import com.emarketeer.aws.apigateway.dto.ApiGatewayRequest
 import com.emarketeer.aws.apigateway.dto.ApiGatewayResponse
 import com.emarketeer.aws.apigateway.dto.ProxyGatewayRequest
@@ -19,27 +14,32 @@ import org.apache.logging.log4j.LogManager
 import java.lang.reflect.Type
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.function.Supplier
 
 
-abstract class ProxyRequestHandler<Body, Query>() : RequestHandler<ApiGatewayRequest<String, Any>, ApiGatewayResponse> {
+abstract class ProxyRequestHandler<Body, Query> : RequestHandler<ApiGatewayRequest<String, Any>, ApiGatewayResponse> {
     val gson = GsonBuilder()
             .registerTypeAdapter(LocalDate::class.java, LocalDateTypeAdapter())
             .registerTypeAdapter(LocalDateTime::class.java, LocalDateTimeTypeAdapter())
             .create()
 
+    val xrayRecorder = AWSXRayRecorderBuilder
+            .standard()
+            .withContextMissingStrategy(LogErrorContextMissingStrategy())
+            .build()
+
     override fun handleRequest(input: ApiGatewayRequest<String, Any>?, context: Context?): ApiGatewayResponse {
-        val xrayRecorder = AWSXRayRecorderBuilder.defaultRecorder()
 
-        val segment = xrayRecorder.beginSegment(this.javaClass.simpleName)
+        return xrayRecorder.createSubsegment("invoking a lambda", Supplier {
+            val body = xrayRecorder.createSubsegment("Parsing body", Supplier {
+                log.info("Request body: ${gson.toJson(input?.body)}")
+                input?.body?.let { gson.fromJson<Body>(it, bodyType()) }
+            })
 
-        return try {
-            // TODO: support Void type
 
-            log.info("Request body: ${gson.toJson(input?.body)}")
-
-            val body = input?.body?.let { gson.fromJson<Body>(it, bodyType()) }
-
-            val queryStringParameters = gson.fromJson<Query>(gson.toJson(input?.queryStringParameters), queryStringType())
+            val queryStringParameters = xrayRecorder.createSubsegment("Parsing query strings", Supplier {
+                gson.fromJson<Query>(gson.toJson(input?.queryStringParameters), queryStringType())
+            })
 
             val parsedRequest: ProxyGatewayRequest<Body, Query> = ProxyGatewayRequest(
                     input!!.resource,
@@ -54,15 +54,8 @@ abstract class ProxyRequestHandler<Body, Query>() : RequestHandler<ApiGatewayReq
                     queryStringParameters
             )
 
-            this.handle(parsedRequest, context, segment)
-        } catch (e: Exception) {
-            segment.addException(e)
-            segment.isError = true
-            log.error("Internal Server Error", e)
-            error(ApiError(e.message, e.message))
-        } finally {
-            xrayRecorder.endSegment()
-        }
+            this.handle(parsedRequest, context)
+        })
     }
 
     open fun ok(): ApiGatewayResponse = ok("")
@@ -75,19 +68,8 @@ abstract class ProxyRequestHandler<Body, Query>() : RequestHandler<ApiGatewayReq
     open fun badRequest(responseBody: Any?): ApiGatewayResponse = badRequest(responseBody, emptyMap())
     open fun badRequest(responseBody: Any?, headers: Map<String, String>): ApiGatewayResponse = ApiGatewayResponse.BAD_REQUEST(gson.toJson(responseBody), headers)
 
-    open fun threadLocalRecorder(traceEntity: Entity): AWSXRayRecorder {
-        val resolver = SegmentContextResolverChain()
-        resolver.addResolver(ThreadLocalSegmentContextResolver())
-
-        val xrayRecorder = AWSXRayRecorderBuilder.standard().withSegmentContextResolverChain(resolver).build()
-
-        xrayRecorder.traceEntity = traceEntity
-
-        return xrayRecorder
-    }
-
     @Throws(Exception::class)
-    abstract fun handle(request: ProxyGatewayRequest<Body, Query>, context: Context?, segment: Segment): ApiGatewayResponse
+    abstract fun handle(request: ProxyGatewayRequest<Body, Query>, context: Context?): ApiGatewayResponse
 
     abstract fun bodyType(): Type
 
