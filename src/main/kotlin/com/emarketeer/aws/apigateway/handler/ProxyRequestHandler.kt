@@ -2,8 +2,7 @@ package com.emarketeer.aws.apigateway.handler
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.RequestHandler
-import com.amazonaws.xray.AWSXRayRecorderBuilder
-import com.amazonaws.xray.strategy.LogErrorContextMissingStrategy
+import com.amazonaws.xray.AWSXRay
 import com.emarketeer.aws.apigateway.adapter.LocalDateTimeTypeAdapter
 import com.emarketeer.aws.apigateway.adapter.LocalDateTypeAdapter
 import com.emarketeer.aws.apigateway.dto.ApiGatewayRequest
@@ -23,21 +22,17 @@ abstract class ProxyRequestHandler<Body, Query> : RequestHandler<ApiGatewayReque
             .registerTypeAdapter(LocalDateTime::class.java, LocalDateTimeTypeAdapter())
             .create()
 
-    val xrayRecorder = AWSXRayRecorderBuilder
-            .standard()
-            .withContextMissingStrategy(LogErrorContextMissingStrategy())
-            .build()
 
     override fun handleRequest(input: ApiGatewayRequest<String, Any>?, context: Context?): ApiGatewayResponse {
 
-        return xrayRecorder.createSubsegment("invoking a lambda", Supplier {
-            val body = xrayRecorder.createSubsegment("Parsing body", Supplier {
+        return AWSXRay.createSubsegment("invoking a lambda", Supplier {
+            val body = AWSXRay.createSubsegment("Parsing body", Supplier {
                 log.info("Request body: ${gson.toJson(input?.body)}")
                 input?.body?.let { gson.fromJson<Body>(it, bodyType()) }
             })
 
 
-            val queryStringParameters = xrayRecorder.createSubsegment("Parsing query strings", Supplier {
+            val queryStringParameters = AWSXRay.createSubsegment("Parsing query strings", Supplier {
                 gson.fromJson<Query>(gson.toJson(input?.queryStringParameters), queryStringType())
             })
 
