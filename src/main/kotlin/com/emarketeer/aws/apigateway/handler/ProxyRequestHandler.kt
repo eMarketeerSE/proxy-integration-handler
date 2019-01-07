@@ -26,18 +26,22 @@ abstract class ProxyRequestHandler<Body, Query> : RequestHandler<ApiGatewayReque
     override fun handleRequest(input: ApiGatewayRequest<String, Any>?, context: Context?): ApiGatewayResponse {
 
         return AWSXRay.createSubsegment("invoking a lambda", Supplier {
+            if(input!!.isHeatingRequest()) {
+                return@Supplier ApiGatewayResponse.OK("")
+            }
+
             val body = AWSXRay.createSubsegment("Parsing body", Supplier {
-                log.info("Request body: ${gson.toJson(input?.body)}")
-                input?.body?.let { gson.fromJson<Body>(it, bodyType()) }
+                log.info("Request body: ${gson.toJson(input.body)}")
+                input.body?.let { gson.fromJson<Body>(it, bodyType()) }
             })
 
 
             val queryStringParameters = AWSXRay.createSubsegment("Parsing query strings", Supplier {
-                gson.fromJson<Query>(gson.toJson(input?.queryStringParameters), queryStringType())
+                gson.fromJson<Query>(gson.toJson(input.queryStringParameters), queryStringType())
             })
 
             val parsedRequest: ProxyGatewayRequest<Body, Query> = ProxyGatewayRequest(
-                    input!!.resource,
+                    input.resource,
                     input.path,
                     input.httpMethod,
                     input.headers,
