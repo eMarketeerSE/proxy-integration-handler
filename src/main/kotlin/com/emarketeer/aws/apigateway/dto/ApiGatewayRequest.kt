@@ -13,4 +13,13 @@ class ApiGatewayRequest<Body, Query>() {
     var requestContext: RequestContext? = null
     var body: Body? = null
     var isBase64Encoded: Boolean = false
+    var source: String? = null
+
+    companion object {
+        const val SOURCE_HEATER = "heater"
+    }
+
+    fun isHeatingRequest(): Boolean {
+        return SOURCE_HEATER.equals(source)
+    }
 }
